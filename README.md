@@ -265,9 +265,20 @@ npm test
 secret encoding, header names or timestamp tolerance drift. Whop API calls run
 against stubs that mirror the shapes in `@whop/sdk`'s types.
 
-What the suite does **not** cover: any real call to Whop. Before trusting this in
-production, run the examples against the sandbox with a real key and confirm the
-request shapes are accepted.
+What the suite does **not** cover: any real call to Whop. For that, put a key in
+`.env` and run the read-only smoke test, which lists and retrieves but creates
+nothing:
+
+```bash
+cp .env.example .env   # then add your key
+npm run smoke          # optionally: npm run smoke -- biz_a_seller_account
+```
+
+It exercises every read path this SDK uses — `accounts.list` pagination, the
+free-text `query` filter onboarding recovery depends on, and the `account_id` /
+`destination_id` filters and date windows reconciliation sends — and reports
+which shapes Whop accepted. The write paths (create account, checkout, transfer)
+are still only covered by the examples.
 
 ## License
 
