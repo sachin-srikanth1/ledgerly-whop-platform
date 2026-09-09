@@ -87,6 +87,12 @@ export async function createCheckout(
 
   const applicationFee = calculateApplicationFee(price);
 
+  // Belt and braces: assert the exact value about to be sent is 8% of the
+  // price. calculateApplicationFee already guards its own arithmetic, but this
+  // is the last point before the number leaves for Whop, and it is the check
+  // that fails loudly if the two ever drift apart.
+  validateApplicationFee(price, applicationFee);
+
   const checkout: any = await (client.checkoutConfigurations.create as any)({
     account_id: sellerAccountId,
     redirect_url: redirectUrl,

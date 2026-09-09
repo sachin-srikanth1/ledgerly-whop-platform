@@ -85,3 +85,29 @@ test("a product title over Whop's 30-character cap is rejected before the round 
     /Whop caps a plan title at 30/
   );
 });
+
+test("createCheckout validates the fee before sending it to Whop", async () => {
+  const { createCheckout } = require("../dist");
+  const sent = [];
+  const client = {
+    checkoutConfigurations: {
+      create: async (request) => {
+        sent.push(request);
+        return { id: "ch_test", purchase_url: "https://whop.com/checkout/ch_test" };
+      },
+    },
+  };
+
+  await createCheckout(client, {
+    sellerAccountId: "biz_x",
+    productTitle: "Course",
+    price: 25,
+    currency: "usd",
+    redirectUrl: "https://example.com/thanks",
+  });
+
+  // The value that actually leaves for Whop is the validated 8%.
+  assert.equal(sent[0].plan.application_fee_amount, 2);
+  assert.equal(sent[0].plan.initial_price, 25);
+  assert.equal(sent[0].account_id, "biz_x");
+});

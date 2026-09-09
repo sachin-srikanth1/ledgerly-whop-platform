@@ -109,16 +109,11 @@ import { onboardSeller, FileStore } from "ledgerly-whop-platform";
 
 const store = new FileStore("./seller-accounts.json"); // your database in production
 
+// External id, email and country are all a seller needs.
 const seller = await onboardSeller(
   client,
-  {
-    externalId: "seller_us_001",
-    email: "seller@example.com",
-    country: "US",
-    returnUrl: "https://ledgerly.example.com/onboarding/complete",
-    refreshUrl: "https://ledgerly.example.com/onboarding/refresh",
-  },
-  { store }
+  { externalId: "seller_us_001", email: "seller@example.com", country: "US" },
+  { store, returnUrl, refreshUrl } // set the URLs once for the platform
 );
 
 seller.accountId;     // biz_xxx — the same one on every call for this externalId

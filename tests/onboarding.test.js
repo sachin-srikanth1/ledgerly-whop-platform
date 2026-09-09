@@ -10,6 +10,7 @@ const {
   onboardSeller,
   getOnboardingStatus,
   findAccountByExternalId,
+  DEFAULT_RETURN_URL,
 } = require("../dist/onboarding");
 const { FileStore, MemoryStore } = require("../dist/store");
 
@@ -24,11 +25,13 @@ const INPUT = {
 /** A Whop stub that records calls and hands back plausible accounts. */
 function stubClient({ existing = [] } = {}) {
   const calls = { create: 0, list: 0, retrieve: 0, link: 0 };
+  const links = [];
   const accounts = new Map(existing.map((account) => [account.id, account]));
   let nextId = 1;
 
   return {
     calls,
+    links,
     accounts,
     client: {
       accounts: {
@@ -66,6 +69,7 @@ function stubClient({ existing = [] } = {}) {
       accountLinks: {
         create: async (request) => {
           calls.link += 1;
+          links.push(request);
           return { url: `https://whop.com/onboarding/${request.account_id}` };
         },
       },
@@ -161,12 +165,48 @@ test("required inputs are checked", async () => {
   const { client } = stubClient();
   const store = new MemoryStore();
 
-  for (const field of ["externalId", "email", "country", "returnUrl", "refreshUrl"]) {
+  for (const field of ["externalId", "email", "country"]) {
     await assert.rejects(
       () => onboardSeller(client, { ...INPUT, [field]: "" }, { store }),
       new RegExp(`${field} is required`)
     );
   }
+});
+
+test("a seller can be onboarded from external id, email and country alone", async () => {
+  const { client } = stubClient();
+
+  // Exactly the inputs the brief names — no URLs.
+  const result = await onboardSeller(
+    client,
+    { externalId: "seller_us_001", email: "seller@example.com", country: "US" },
+    { store: new MemoryStore() }
+  );
+
+  assert.equal(result.created, true);
+  assert.match(result.accountId, /^biz_/);
+  assert.ok(result.onboardingUrl, "an onboarding link is still returned");
+});
+
+test("onboarding URLs resolve per call, then platform-wide, then default", async () => {
+  const { client, links } = stubClient();
+  const base = { externalId: "s1", email: "a@example.com", country: "US" };
+
+  await onboardSeller(client, base, { store: new MemoryStore() });
+  assert.equal(links.at(-1).return_url, DEFAULT_RETURN_URL);
+
+  await onboardSeller(client, { ...base, externalId: "s2" }, {
+    store: new MemoryStore(),
+    returnUrl: "https://platform.example/return",
+    refreshUrl: "https://platform.example/refresh",
+  });
+  assert.equal(links.at(-1).return_url, "https://platform.example/return");
+
+  await onboardSeller(client, { ...base, externalId: "s3", returnUrl: "https://per-call.example/return" }, {
+    store: new MemoryStore(),
+    returnUrl: "https://platform.example/return",
+  });
+  assert.equal(links.at(-1).return_url, "https://per-call.example/return");
 });
 
 test("onboarding status reads verification and capabilities", async () => {

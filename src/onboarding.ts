@@ -4,6 +4,18 @@ import type { KeyValueStore } from "./store";
 /** Metadata key holding the platform's own seller id on the connected account. */
 export const EXTERNAL_ID_METADATA_KEY = "external_id";
 
+/**
+ * Fallback destinations for the hosted onboarding flow.
+ *
+ * Whop requires both on every account link, so there is no "leave it unset"
+ * option at the API level. These exist so that onboarding a seller needs only
+ * the seller's own details — external id, email and country — and are meant to
+ * be replaced: set `returnUrl`/`refreshUrl` on {@link OnboardSellerOptions}
+ * once for the platform, or per call for a one-off.
+ */
+export const DEFAULT_RETURN_URL = "https://ledgerly.example.com/onboarding/complete";
+export const DEFAULT_REFRESH_URL = "https://ledgerly.example.com/onboarding/refresh";
+
 export interface OnboardSellerInput {
   /** Ledgerly's own id for this seller. The idempotency key for onboarding. */
   externalId: string;
@@ -12,10 +24,13 @@ export interface OnboardSellerInput {
   country: string;
   /** Display name for the account. Defaults to `externalId`. */
   title?: string;
-  /** Where Whop returns the seller after they finish onboarding. */
-  returnUrl: string;
+  /**
+   * Where Whop returns the seller after they finish onboarding. Overrides the
+   * platform-wide value on {@link OnboardSellerOptions}.
+   */
+  returnUrl?: string;
   /** Where Whop sends the seller if the onboarding link expires. */
-  refreshUrl: string;
+  refreshUrl?: string;
 }
 
 export interface OnboardSellerResult {
@@ -48,6 +63,13 @@ export interface OnboardSellerOptions {
    * true. See {@link findAccountByExternalId} for the cost.
    */
   recoverFromWhop?: boolean;
+  /**
+   * Platform-wide destination after a seller finishes onboarding. Set this once
+   * rather than passing it per seller. Falls back to {@link DEFAULT_RETURN_URL}.
+   */
+  returnUrl?: string;
+  /** Platform-wide refresh destination. Falls back to {@link DEFAULT_REFRESH_URL}. */
+  refreshUrl?: string;
 }
 
 const storeKey = (externalId: string) => `seller:${externalId}`;
@@ -94,14 +116,16 @@ export async function onboardSeller(
   input: OnboardSellerInput,
   options: OnboardSellerOptions
 ): Promise<OnboardSellerResult> {
-  const { externalId, email, country, title, returnUrl, refreshUrl } = input;
+  const { externalId, email, country, title } = input;
   const { store, recoverFromWhop = true } = options;
 
   if (!externalId) throw new Error("externalId is required");
   if (!email) throw new Error("email is required");
   if (!country) throw new Error("country is required");
-  if (!returnUrl) throw new Error("returnUrl is required");
-  if (!refreshUrl) throw new Error("refreshUrl is required");
+
+  // Per call, then platform-wide, then the documented placeholder.
+  const returnUrl = input.returnUrl ?? options.returnUrl ?? DEFAULT_RETURN_URL;
+  const refreshUrl = input.refreshUrl ?? options.refreshUrl ?? DEFAULT_REFRESH_URL;
 
   const mappedAccountId = await store.get(storeKey(externalId));
 
