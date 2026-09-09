@@ -231,6 +231,14 @@ Payment amounts arrive as exact decimal strings and are parsed straight to cents
 `Number("0.1") * 100` is `10.000000000000002`, which is the error the string
 representation exists to avoid.
 
+## Why it is built this way
+
+[DECISIONS.md](DECISIONS.md) covers the six choices that were not obvious:
+where onboarding idempotency actually lives, why the 8% fee needed a negative
+test, why reconciliation throws instead of returning empty, why a webhook is
+recorded only after its handler succeeds, why money is integer cents, and why
+the file store is a development default rather than the design.
+
 ## Layout
 
 ```
