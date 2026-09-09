@@ -37,9 +37,9 @@ sequenceDiagram
     autonumber
     actor Buyer
     participant Checkout as Whop Checkout
+    participant Ledgerly
     participant Whop as Whop Ledger
     participant Seller as Seller account (biz_)
-    participant Ledgerly
 
     Ledgerly->>Checkout: create checkout configuration<br/>account_id = seller, application_fee_amount = 8%
     Checkout-->>Ledgerly: checkout URL
