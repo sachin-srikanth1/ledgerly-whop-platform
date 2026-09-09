@@ -6,7 +6,11 @@ const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
 
-const { onboardSeller, getOnboardingStatus } = require("../dist/onboarding");
+const {
+  onboardSeller,
+  getOnboardingStatus,
+  findAccountByExternalId,
+} = require("../dist/onboarding");
 const { FileStore, MemoryStore } = require("../dist/store");
 
 const INPUT = {
@@ -41,6 +45,9 @@ function stubClient({ existing = [] } = {}) {
           accounts.set(account.id, account);
           return account;
         },
+        // Whop's `query` filter matches `title` only — never metadata. The
+        // stub mirrors that, so a test cannot pass on behaviour the API
+        // does not have.
         list: async (request) => {
           calls.list += 1;
           return [...accounts.values()].filter(
@@ -186,4 +193,51 @@ test("onboarding writes the reverse mapping the webhook consumer routes with", a
   const seller = await onboardSeller(client, INPUT, { store });
 
   assert.equal(await store.get(`account:${seller.accountId}`), "seller_us_001");
+});
+
+test("recovery finds an account whose title is not its external id", async () => {
+  const { client, accounts, calls } = stubClient();
+
+  // How a real connected account looks: a human title, the identity in
+  // metadata. `query: "seller_us_001"` matches nothing here.
+  accounts.set("biz_preexisting", {
+    id: "biz_preexisting",
+    email: "seller@example.com",
+    country: "US",
+    title: "Ledgerly US Seller",
+    metadata: { external_id: "seller_us_001" },
+    status: "active",
+  });
+
+  const result = await onboardSeller(client, INPUT, { store: new MemoryStore() });
+
+  assert.equal(result.accountId, "biz_preexisting");
+  assert.equal(result.created, false);
+  assert.equal(calls.create, 0, "must not duplicate an account it failed to find");
+});
+
+test("a scan that hits its ceiling throws instead of duplicating", async () => {
+  const { client, accounts } = stubClient();
+
+  for (let i = 0; i < 10; i += 1) {
+    accounts.set(`biz_other_${i}`, {
+      id: `biz_other_${i}`,
+      title: `Some Other Seller ${i}`,
+      metadata: { external_id: `someone_else_${i}` },
+    });
+  }
+
+  // Returning undefined here would read as "no such account" and create a
+  // second one — the outcome recovery exists to prevent.
+  await assert.rejects(
+    () => findAccountByExternalId(client, "seller_us_001", 5),
+    /without finding external id/
+  );
+});
+
+test("a genuinely absent external id returns undefined, not an error", async () => {
+  const { client, accounts } = stubClient();
+  accounts.set("biz_other", { id: "biz_other", title: "Other", metadata: {} });
+
+  assert.equal(await findAccountByExternalId(client, "never_onboarded"), undefined);
 });

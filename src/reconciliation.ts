@@ -186,6 +186,10 @@ async function fetchPayments(
  * Filtered by `destination_id`: these are the transfers Ledgerly sends a seller
  * their share with. Transfers *out* of the seller's account are a different
  * question and are not reconciled here.
+ *
+ * The filter is not optional. `transfers.list` with neither `origin_id` nor
+ * `destination_id` is a 400 ("You must specify an origin_id or a
+ * destination_id"), unlike `payments.list`, which happily lists everything.
  */
 async function fetchTransfers(
   client: WhopClient,

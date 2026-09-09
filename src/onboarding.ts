@@ -161,27 +161,71 @@ export async function onboardSeller(
 }
 
 /**
+ * Default ceiling on the accounts {@link findAccountByExternalId} will scan.
+ *
+ * Recovery walks the platform's connected accounts 50 at a time. The cap keeps
+ * a lost store on a large platform from turning one onboarding call into
+ * thousands of API requests.
+ */
+export const DEFAULT_MAX_ACCOUNTS_SCANNED = 1000;
+
+/**
  * Find a connected account previously created with this `externalId`.
  *
- * A recovery path for a lost or rebuilt store, not a hot path. Whop cannot
- * filter accounts by metadata, so this narrows server-side with the free-text
- * `query` filter (which matches `title`, defaulted to the external id on
- * creation) and then confirms the match on `metadata.external_id` — the field
- * that actually carries the identity. Accounts created with a custom `title`
- * are not found by the `query` filter and fall outside this recovery path.
+ * A recovery path for a lost or rebuilt store, not a hot path.
  *
- * @returns the account, or undefined when none carries this external id.
+ * Whop cannot filter accounts by metadata, and its free-text `query` filter
+ * matches `title` **only** — passing an external id there returns nothing
+ * unless the account happens to be titled with it. (Verified against a live
+ * platform account: `query: "seller_us_001"` returns 0 matches for an account
+ * carrying exactly that `metadata.external_id` under the title "Ledgerly US
+ * Seller".) So `query` is a fast path, not the mechanism: when it misses, this
+ * falls back to paging every connected account and matching on
+ * `metadata.external_id`, the field that actually carries the identity.
+ *
+ * @param maxAccountsScanned Ceiling on the fallback scan. Defaults to
+ * {@link DEFAULT_MAX_ACCOUNTS_SCANNED}.
+ * @returns the account, or undefined when the platform has none carrying this
+ * external id.
+ * @throws {Error} when the scan hits `maxAccountsScanned` without a match.
+ * Returning undefined there would be indistinguishable from "no such account",
+ * and the caller would create a duplicate — the exact outcome recovery exists
+ * to prevent.
  */
 export async function findAccountByExternalId(
   client: WhopClient,
-  externalId: string
+  externalId: string,
+  maxAccountsScanned: number = DEFAULT_MAX_ACCOUNTS_SCANNED
 ): Promise<any | undefined> {
-  const page = await (client.accounts.list as any)({ query: externalId, first: 50 });
+  const matches = (account: any) =>
+    account?.metadata?.[EXTERNAL_ID_METADATA_KEY] === externalId;
 
-  // The SDK's Page is async-iterable and pages through on demand.
-  for await (const account of page) {
-    if (account?.metadata?.[EXTERNAL_ID_METADATA_KEY] === externalId) {
-      return account;
+  // Fast path: cheap when the account was created by this SDK, whose default
+  // title is the external id.
+  const titleMatches = await (client.accounts.list as any)({
+    query: externalId,
+    first: 50,
+  });
+
+  for await (const account of titleMatches) {
+    if (matches(account)) return account;
+  }
+
+  // Fallback: the title did not carry the external id, so scan on metadata.
+  // The SDK's Page is async-iterable and fetches further pages on demand.
+  const allAccounts = await (client.accounts.list as any)({ first: 50 });
+
+  let scanned = 0;
+
+  for await (const account of allAccounts) {
+    if (matches(account)) return account;
+
+    if (++scanned >= maxAccountsScanned) {
+      throw new Error(
+        `Scanned ${scanned} connected accounts without finding external id ` +
+          `"${externalId}". Raise maxAccountsScanned, or seed the store with ` +
+          `the mapping directly — continuing would create a duplicate account.`
+      );
     }
   }
 

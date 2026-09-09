@@ -128,8 +128,17 @@ seller.onboardingUrl; // fresh every call: these links expire
 
 Whop has no "find account by metadata" endpoint, so the `externalId → account id`
 map in your store is what makes this idempotent — there is no server-side unique
-key to lean on. If the store is lost, `findAccountByExternalId` recovers the
-mapping by scanning connected accounts.
+key to lean on.
+
+If the store is lost, `findAccountByExternalId` recovers the mapping. Note what
+it cannot do: Whop's free-text `query` filter matches `title` **only**, so
+searching it for an external id returns nothing for any account titled something
+human — verified against a live platform, where `query: "seller_us_001"` returns
+zero matches for the account carrying exactly that `metadata.external_id` under
+the title "Ledgerly US Seller". Recovery therefore uses `query` as a fast path
+and falls back to paging every connected account and matching on metadata. That
+scan is capped; hitting the cap throws rather than returning "not found", because
+"not found" would make the caller create a duplicate.
 
 The one race this cannot close on its own: two concurrent calls for the same
 unmapped `externalId` both find nothing and both create. Back `KeyValueStore`
