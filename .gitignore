@@ -1,0 +1,27 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+
+# Environment
+.env
+.env.local
+
+# Runtime state written by the FileStore in the examples
+*.store.json
+webhook-events.json
+seller-accounts.json
+
+# Reconciliation output
+reconciliation-*.json
+
+# Editors and OS
+.vscode/
+.idea/
+*.swp
+.DS_Store
+
+# Logs
+*.log
+npm-debug.log*

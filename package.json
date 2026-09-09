@@ -1,0 +1,33 @@
+{
+  "name": "ledgerly-platform",
+  "version": "1.0.0",
+  "description": "Idempotent onboarding, 8% application-fee checkout, verified webhooks and reconciliation for a Whop connected-accounts platform",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": ["dist", "README.md", "LICENSE"],
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "tsc",
+    "clean": "rm -rf dist",
+    "pretest": "npm run build",
+    "test": "node --test tests/*.test.js",
+    "typecheck": "tsc --noEmit",
+    "example:onboard": "node examples/onboard-seller.js",
+    "example:checkout": "node examples/create-checkout.js",
+    "example:webhooks": "node examples/webhook-server.js",
+    "example:reconcile": "node examples/run-reconciliation.js"
+  },
+  "keywords": ["whop", "platform", "marketplace", "payments", "connected-accounts"],
+  "author": "Ledgerly",
+  "license": "MIT",
+  "dependencies": {
+    "@whop/sdk": "^1.1.2"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "standardwebhooks": "^1.1.1",
+    "typescript": "^5.0.0"
+  }
+}
