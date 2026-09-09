@@ -12,7 +12,7 @@
  * parameter names, filters and pagination are right.
  *
  * It CREATES NOTHING. Every call below is a list or a retrieve, so it is safe
- * to run against production credentials — though sandbox is the better habit.
+ * to run against production credentials, though sandbox is the better habit.
  */
 
 const { platformClient } = require("./client");
@@ -67,7 +67,7 @@ async function main() {
   console.log("\nOnboarding read paths");
   const accountsPage = await check(
     "accounts.list({ first })",
-    "first: 5 — cursor pagination, not `limit`",
+    "first: 5 (cursor pagination, not `limit`)",
     () => client.accounts.list({ first: 5 })
   );
 
@@ -80,7 +80,7 @@ async function main() {
   // The filter findAccountByExternalId relies on when a store is lost.
   await check(
     "accounts.list({ query, first })",
-    "query: '<external id>' — free-text filter on title",
+    "query: '<external id>' (free-text filter on title)",
     () => client.accounts.list({ query: "ledgerly-smoke-test-no-match", first: 5 })
   );
 
@@ -95,7 +95,7 @@ async function main() {
 
     const paymentsPage = await check(
       "payments.list({ account_id, created_after, created_before, first })",
-      "account_id — not `company_id`; dates as ISO 8601",
+      "account_id (not `company_id`); dates as ISO 8601",
       () =>
         client.payments.list({
           account_id: sellerAccountId,
@@ -114,7 +114,7 @@ async function main() {
       if (payment) {
         const money = payment.total ?? payment.amount_after_fees;
         console.log(
-          `      first payment total: ${JSON.stringify(money)} — ` +
+          `      first payment total: ${JSON.stringify(money)}; ` +
             `expects { amount: string, decimals: number }`
         );
       }
@@ -122,7 +122,7 @@ async function main() {
 
     const transfersPage = await check(
       "transfers.list({ destination_id, created_after, first })",
-      "destination_id — not `to_company_id`",
+      "destination_id (not `to_company_id`)",
       () =>
         client.transfers.list({
           destination_id: sellerAccountId,
@@ -138,7 +138,7 @@ async function main() {
       const [transfer] = transfers;
       if (transfer) {
         console.log(
-          `      first transfer amount: ${JSON.stringify(transfer.amount)} — ` +
+          `      first transfer amount: ${JSON.stringify(transfer.amount)}; ` +
             `expects a plain number, unlike Payment's Money object`
         );
       }

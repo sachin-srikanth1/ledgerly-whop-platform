@@ -8,7 +8,7 @@ const { Webhook } = require("standardwebhooks");
  *
  * Whop HMACs with the literal bytes of the `ws_` secret it issued, while
  * `standardwebhooks` base64-decodes whatever key it is given. Base64-encoding
- * the whole secret here cancels that decode out — the same trick
+ * the whole secret here cancels that decode out, the same trick
  * `unwrapWebhook` uses on the verifying side.
  */
 function signWebhook({ secret, messageId, payload, timestamp = new Date() }) {

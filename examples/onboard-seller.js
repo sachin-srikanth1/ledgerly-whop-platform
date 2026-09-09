@@ -4,7 +4,7 @@
  * Onboard a seller, idempotently.
  *
  * Run it twice. The second run finds the account the first one created and
- * reports `created: false`, but still mints a fresh onboarding link — those
+ * reports `created: false`, but still mints a fresh onboarding link, because those
  * expire, so there is nothing to reuse.
  */
 

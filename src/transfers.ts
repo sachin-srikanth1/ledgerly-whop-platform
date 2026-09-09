@@ -15,7 +15,7 @@ export interface PaySellerShareInput {
   /**
    * A key unique to this payout. Whop returns the original transfer rather than
    * moving money twice when a key repeats, which is what makes a retry safe.
-   * Derive it from the payment being settled — `payout:pay_abc123` — never from
+   * Derive it from the payment being settled (`payout:pay_abc123`), never from
    * a timestamp or random value, or a retry creates a second transfer.
    */
   idempotenceKey: string;
@@ -43,7 +43,7 @@ export interface PaySellerShareResult {
  * ## Balance must have settled
  *
  * A transfer draws on the platform's *available* balance. A charge collected
- * moments ago is still pending and cannot fund one — the call fails when the
+ * moments ago is still pending and cannot fund one: the call fails when the
  * amount exceeds the available balance. Drive this from the
  * `ledger_account.funds_available` webhook, or a scheduled sweep, rather than
  * calling it inline on `payment.succeeded`.
@@ -52,7 +52,7 @@ export interface PaySellerShareResult {
  * connected accounts; `can_transfer_pending_balance_to_children` on the account
  * says whether yours is.)
  *
- * @throws whatever the API returns — notably an insufficient-balance error,
+ * @throws whatever the API returns, notably an insufficient-balance error,
  * which is a signal to retry later with the same `idempotenceKey`, not to
  * halve the amount.
  */

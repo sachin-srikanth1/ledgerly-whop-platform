@@ -33,7 +33,7 @@ export interface RoutedEvent<TData = Record<string, unknown>> {
   sellerAccountId: string | null;
   /**
    * Ledgerly's own seller id, resolved through the onboarding store.
-   * Null when the account is unknown to us — see {@link WebhookConsumer.handle}.
+   * Null when the account is unknown to us. See {@link WebhookConsumer.handle}.
    */
   externalId: string | null;
 }
@@ -81,8 +81,8 @@ const processedKey = (messageId: string) => `webhook:${messageId}`;
  *
  * At-least-once. A message id is recorded as processed only after its handler
  * resolves, so a crash mid-handler leaves it unrecorded and Whop's retry runs
- * the handler again. That is the safe direction to fail — the alternative loses
- * events outright — but it does mean **handlers must be idempotent themselves**.
+ * the handler again. That is the safe direction to fail, since the alternative
+ * loses events outright, but it does mean **handlers must be idempotent themselves**.
  * Key your own writes on `event.id`, or on the payment/transfer id inside
  * `event.data`.
  *
@@ -132,12 +132,12 @@ export class WebhookConsumer {
    *
    * @throws {WebhookVerificationError} when the signature is missing, malformed,
    * outside the timestamp tolerance, or simply wrong. Answer 400 and do not
-   * retry — a bad signature never becomes good.
+   * retry: a bad signature never becomes good.
    * @throws {Error} propagated from a handler. Answer 5xx so Whop redelivers.
    */
   async handle(rawBody: string, headers: Record<string, string>): Promise<HandleResult> {
     // Throws unless the signature verifies. Nothing below this line runs on an
-    // unsigned or badly-signed request — including the JSON parse.
+    // unsigned or badly-signed request, including the JSON parse.
     const event = unwrapWebhook<WhopWebhookEvent>(rawBody, {
       headers,
       key: this.secret,

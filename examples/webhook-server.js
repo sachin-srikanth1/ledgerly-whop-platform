@@ -29,31 +29,31 @@ const describe = ({ event, externalId, sellerAccountId }) =>
   `${event.type} for ${externalId ?? sellerAccountId ?? "the platform"}`;
 
 consumer.on("payment.succeeded", async (routed) => {
-  console.log(`  ${describe(routed)} — payment ${routed.event.data.id}`);
+  console.log(`  ${describe(routed)}: payment ${routed.event.data.id}`);
   // Credit the seller's ledger. Key the write on routed.event.id or the
   // payment id: this handler can run more than once for the same event.
 });
 
 consumer.on("refund.created", async (routed) => {
-  console.log(`  ${describe(routed)} — refund ${routed.event.data.id}`);
+  console.log(`  ${describe(routed)}: refund ${routed.event.data.id}`);
   // Whop does not reverse the application fee on a refund. Decide explicitly
   // whether Ledgerly returns its 8%, and record that decision here.
 });
 
 consumer.on("dispute.created", async (routed) => {
-  console.log(`  ${describe(routed)} — dispute ${routed.event.data.id}`);
+  console.log(`  ${describe(routed)}: dispute ${routed.event.data.id}`);
 });
 
 consumer.on("transfer.completed", async (routed) => {
-  console.log(`  ${describe(routed)} — transfer ${routed.event.data.id}`);
+  console.log(`  ${describe(routed)}: transfer ${routed.event.data.id}`);
 });
 
 consumer.on("payout.updated", async (routed) => {
-  console.log(`  ${describe(routed)} — payout now ${routed.event.data.status}`);
+  console.log(`  ${describe(routed)}: payout now ${routed.event.data.status}`);
 });
 
 consumer.on("account.updated", async (routed) => {
-  console.log(`  ${describe(routed)} — account state changed`);
+  console.log(`  ${describe(routed)}: account state changed`);
 });
 
 const readBody = (request) =>

@@ -9,7 +9,7 @@ export const EXTERNAL_ID_METADATA_KEY = "external_id";
  *
  * Whop requires both on every account link, so there is no "leave it unset"
  * option at the API level. These exist so that onboarding a seller needs only
- * the seller's own details — external id, email and country — and are meant to
+ * the seller's own details (external id, email and country), and are meant to
  * be replaced: set `returnUrl`/`refreshUrl` on {@link OnboardSellerOptions}
  * once for the platform, or per call for a one-off.
  */
@@ -43,8 +43,8 @@ export interface OnboardSellerResult {
   /** False when an existing account was found for this `externalId`. */
   created: boolean;
   /**
-   * A short-lived hosted KYC URL. Minted fresh on every call — including calls
-   * that returned an existing account — because these links expire. Never cache
+   * A short-lived hosted KYC URL. Minted fresh on every call, including calls
+   * that returned an existing account, because these links expire. Never cache
    * one; call again for a new one.
    */
   onboardingUrl: string;
@@ -102,13 +102,13 @@ const reverseKey = (accountId: string) => `account:${accountId}`;
  * whichever mapping landed second.
  *
  * To close it, back {@link KeyValueStore} with a table whose key column is
- * UNIQUE, and reserve the key before calling this function — let the loser of
+ * UNIQUE, and reserve the key before calling this function: let the loser of
  * the insert wait for the winner's account id rather than calling through. A
  * local file store cannot express that constraint.
  *
  * @param client Whop client authenticated with the *platform* API key.
  * @throws {Error} when the store maps `externalId` to an account Whop no longer
- * returns — a real inconsistency that silently creating a second account would
+ * returns, a real inconsistency that silently creating a second account would
  * paper over.
  */
 export async function onboardSeller(
@@ -138,7 +138,7 @@ export async function onboardSeller(
     if (!account) {
       throw new Error(
         `Store maps externalId "${externalId}" to account ${mappedAccountId}, ` +
-          `but Whop does not return that account. Resolve this by hand — creating ` +
+          `but Whop does not return that account. Resolve this by hand: creating ` +
           `a replacement would strand any payments already made to it.`
       );
     }
@@ -166,8 +166,8 @@ export async function onboardSeller(
   }
 
   // Written on every path, not just the create path. A store seeded from
-  // elsewhere — a migration, an older version of this SDK, a hand-inserted
-  // row — can hold the forward mapping without the reverse one, and a missing
+  // elsewhere (a migration, an older version of this SDK, a hand-inserted
+  // row) can hold the forward mapping without the reverse one, and a missing
   // reverse mapping is invisible until a webhook arrives and routes to a null
   // seller. Re-writing an existing key is harmless.
   await store.set(reverseKey(account.id), externalId);
@@ -205,7 +205,7 @@ export const DEFAULT_MAX_ACCOUNTS_SCANNED = 1000;
  * A recovery path for a lost or rebuilt store, not a hot path.
  *
  * Whop cannot filter accounts by metadata, and its free-text `query` filter
- * matches `title` **only** — passing an external id there returns nothing
+ * matches `title` **only**, so passing an external id there returns nothing
  * unless the account happens to be titled with it. (Verified against a live
  * platform account: `query: "seller_us_001"` returns 0 matches for an account
  * carrying exactly that `metadata.external_id` under the title "Ledgerly US
@@ -219,7 +219,7 @@ export const DEFAULT_MAX_ACCOUNTS_SCANNED = 1000;
  * external id.
  * @throws {Error} when the scan hits `maxAccountsScanned` without a match.
  * Returning undefined there would be indistinguishable from "no such account",
- * and the caller would create a duplicate — the exact outcome recovery exists
+ * and the caller would create a duplicate, the exact outcome recovery exists
  * to prevent.
  */
 export async function findAccountByExternalId(
@@ -254,7 +254,7 @@ export async function findAccountByExternalId(
       throw new Error(
         `Scanned ${scanned} connected accounts without finding external id ` +
           `"${externalId}". Raise maxAccountsScanned, or seed the store with ` +
-          `the mapping directly — continuing would create a duplicate account.`
+          `the mapping directly. Continuing would create a duplicate account.`
       );
     }
   }
@@ -290,8 +290,8 @@ export interface OnboardingStatus {
  * Read a connected account's KYC progress.
  *
  * `capabilities` and `verification` are only computed on `retrieve` (not on
- * `list`) and only for callers holding `company:balance:read` on the account —
- * without that scope Whop returns them as null and `canAcceptPayments` reads
+ * `list`) and only for callers holding `company:balance:read` on the account.
+ * Without that scope Whop returns them as null and `canAcceptPayments` reads
  * false for a perfectly healthy account.
  */
 export async function getOnboardingStatus(

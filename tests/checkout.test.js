@@ -77,7 +77,7 @@ test("a product title over Whop's 30-character cap is rejected before the round 
     () =>
       createCheckout({}, {
         sellerAccountId: "biz_x",
-        productTitle: "Ledgerly Verification — Premium Course",
+        productTitle: "Ledgerly Verification Premium Course",
         price: 25,
         currency: "usd",
         redirectUrl: "https://example.com/thanks",

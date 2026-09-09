@@ -5,7 +5,7 @@ export type RecordKind = "payment" | "transfer";
 
 /** One row from Ledgerly's own ledger, to be checked against Whop. */
 export interface LocalLedgerRecord {
-  /** The Whop id this row records — `pay_...` or `tran_...`. The join key. */
+  /** The Whop id this row records: `pay_...` or `tran_...`. The join key. */
   id: string;
   kind: RecordKind;
   /** Major units. A string is parsed exactly; a number must be whole cents. */
@@ -73,8 +73,8 @@ export interface ReconciliationReport {
 /**
  * Diff one seller's payments and transfers on Whop against Ledgerly's ledger.
  *
- * Fetches every record in the window — following pagination to the end, not
- * just the first page — and reports what the two sides disagree about.
+ * Fetches every record in the window, following pagination to the end rather
+ * than just the first page, and reports what the two sides disagree about.
  *
  * ## Errors are not caught
  *
@@ -141,7 +141,7 @@ export async function reconcileSeller(
 /**
  * Every payment on the seller's account in the window.
  *
- * Reconciles on `total` — the account-facing total, price after discounts plus
+ * Reconciles on `total`, the account-facing total: price after discounts plus
  * any tax added on top. Not `amount_after_fees`, which nets out Whop's fees and
  * so is not what a ledger records at charge time.
  */
@@ -314,7 +314,7 @@ function diff(
 /** Render a report as human-readable lines, newest concern first. */
 export function formatReport(report: ReconciliationReport): string {
   const lines = [
-    `Reconciliation — ${report.sellerAccountId}`,
+    `Reconciliation: ${report.sellerAccountId}`,
     `Generated ${report.generatedAt}`,
     `Window: ${report.window.since ?? "beginning"} to ${report.window.until ?? "now"}`,
     "",

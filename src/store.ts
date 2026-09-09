@@ -35,7 +35,7 @@ export interface KeyValueStore {
  * `set`, which is O(n) per webhook and will not keep up at volume.
  *
  * For production, implement {@link KeyValueStore} against a table with a unique
- * constraint on the key. That constraint — not this file — is what makes
+ * constraint on the key. That constraint, not this file, is what makes
  * concurrent delivery of the same webhook safe.
  */
 export class FileStore implements KeyValueStore {
@@ -69,7 +69,7 @@ export class FileStore implements KeyValueStore {
       // account we had already onboarded.
       throw new Error(
         `Could not read store at ${this.filePath}: ${(error as Error).message}. ` +
-          `Fix or remove the file — starting with an empty store would break idempotency.`
+          `Fix or remove the file. Starting with an empty store would break idempotency.`
       );
     }
   }

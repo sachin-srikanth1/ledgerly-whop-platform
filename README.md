@@ -3,16 +3,16 @@
 Connected-accounts plumbing for a Whop platform, in TypeScript. Fork it, point it
 at your own store, and it does four things:
 
-- **Idempotent onboarding** — create-or-fetch a seller's connected account from
+- **Idempotent onboarding**: create-or-fetch a seller's connected account from
   your own seller id, plus a hosted KYC link.
-- **Checkout with an 8% application fee** — computed in integer cents, validated
+- **Checkout with an 8% application fee**: computed in integer cents, validated
   exactly, applied by Whop at charge time.
-- **A webhook consumer** — verifies Standard Webhooks signatures, deduplicates on
+- **A webhook consumer**: verifies Standard Webhooks signatures, deduplicates on
   the message id across restarts, and routes each event to the seller it belongs to.
-- **A reconciliation job** — diffs one seller's Whop payments and transfers against
+- **A reconciliation job**: diffs one seller's Whop payments and transfers against
   your ledger and reports what disagrees.
 
-Requires Node 20+ and a Whop platform API key. The platforms API is invite-only —
+Requires Node 20+ and a Whop platform API key. The platforms API is invite-only, so
 contact Whop if you don't have access yet.
 
 ```bash
@@ -26,7 +26,7 @@ Whop supports two ways for a platform to take its cut. They differ in who holds
 the money and when, which changes what you reconcile and what you owe a seller
 if something goes wrong.
 
-### Direct charge — the buyer pays the seller
+### Direct charge: the buyer pays the seller
 
 The charge is created on the seller's connected account. Whop routes Ledgerly's
 `application_fee_amount` to the platform and the rest to the seller, who bears
@@ -55,12 +55,12 @@ sequenceDiagram
     Checkout-->>Buyer: redirect to thank-you page
 ```
 
-Ledgerly's $2.00 is fixed and knowable up front. **The seller's net is not** — it
+Ledgerly's $2.00 is fixed and knowable up front. **The seller's net is not.** It
 depends on Whop's fee schedule for that account, the buyer's card, and any
 currency conversion. Read it from `payments.listFees` once the payment exists
 rather than estimating it.
 
-### Transfer — the buyer pays Ledgerly
+### Transfer: the buyer pays Ledgerly
 
 Ledgerly takes the whole charge and moves the seller's 92% afterwards. Useful
 when the split isn't known at checkout time, or when the seller can't be charged
@@ -92,12 +92,12 @@ The pending-balance step is the one that bites. `transfers.create` draws on the
 platform's *available* balance and fails when the amount exceeds it, so calling
 it inline on `payment.succeeded` fails for a charge that hasn't settled. Drive it
 from `ledger_account.funds_available` or a scheduled sweep. (Some platform
-accounts may transfer pending balance to their children —
+accounts may transfer pending balance to their children;
 `can_transfer_pending_balance_to_children` on the account says whether yours can.)
 
 **Refunds.** In the direct-charge flow the refund comes out of the seller's
-account. Whether Whop also reverses the application fee is account-specific —
-confirm it against your own account before you decide whether Ledgerly returns
+account. Whether Whop also reverses the application fee is account-specific.
+Confirm it against your own account before you decide whether Ledgerly returns
 its 8%, and record whichever way you decide in your `refund.created` handler.
 
 ## Usage
@@ -116,19 +116,19 @@ const seller = await onboardSeller(
   { store, returnUrl, refreshUrl } // set the URLs once for the platform
 );
 
-seller.accountId;     // biz_xxx — the same one on every call for this externalId
+seller.accountId;     // biz_xxx, the same one on every call for this externalId
 seller.created;       // false once the account exists
 seller.onboardingUrl; // fresh every call: these links expire
 ```
 
 Whop has no "find account by metadata" endpoint, so the `externalId → account id`
-map in your store is what makes this idempotent — there is no server-side unique
+map in your store is what makes this idempotent: there is no server-side unique
 key to lean on.
 
 If the store is lost, `findAccountByExternalId` recovers the mapping. Note what
 it cannot do: Whop's free-text `query` filter matches `title` **only**, so
 searching it for an external id returns nothing for any account titled something
-human — verified against a live platform, where `query: "seller_us_001"` returns
+human. Verified against a live platform, where `query: "seller_us_001"` returns
 zero matches for the account carrying exactly that `metadata.external_id` under
 the title "Ledgerly US Seller". Recovery therefore uses `query` as a fast path
 and falls back to paging every connected account and matching on metadata. That
@@ -153,13 +153,13 @@ const checkout = await createCheckout(client, {
   redirectUrl: "https://ledgerly.example.com/thanks",
 });
 
-checkout.applicationFee; // 2 — exactly 8%, to the cent
+checkout.applicationFee; // 2, exactly 8% to the cent
 ```
 
 Fees are computed in integer cents and converted back only at the API boundary,
 because `100.1 * 0.08` is `8.008000000000001` and a fee that fails an equality
-check against itself is a support ticket. `validateApplicationFee` is exact — no
-tolerance — since a fee a cent off is a fee something else computed.
+check against itself is a support ticket. `validateApplicationFee` is exact, with no
+tolerance, since a fee a cent off is a fee something else computed.
 
 A price small enough that 8% rounds to zero throws: Whop requires a positive
 `application_fee_amount`, so a $0.05 sale cannot carry this fee at all.
@@ -178,7 +178,7 @@ consumer.on("payment.succeeded", async ({ event, sellerAccountId, externalId }) 
   // externalId is your seller id, resolved through the same store onboarding wrote.
 });
 
-// In your route handler — raw body, not a re-serialized one:
+// In your route handler. Raw body, not a re-serialized one:
 const result = await consumer.handle(await request.text(), headers);
 ```
 
@@ -188,12 +188,12 @@ secret, while the `standardwebhooks` library base64-decodes whatever key it is
 given, so the secret has to be base64-encoded first to cancel that out. Pass the
 secret exactly as Whop displays it and the helper does the rest.
 
-**Answer 400 on `WebhookVerificationError`** — a bad signature never becomes good,
+**Answer 400 on `WebhookVerificationError`**: a bad signature never becomes good,
 so there is nothing to retry. **Answer 5xx when a handler throws**, so Whop
 redelivers.
 
 Delivery is at-least-once. A message id is recorded only after its handler
-resolves, so a crash mid-handler means the retry runs it again — the safe
+resolves, so a crash mid-handler means the retry runs it again. That is the safe
 direction to fail, but it does mean **your handlers must be idempotent too**. Key
 your writes on `event.id` or on the payment id inside `event.data`.
 
@@ -247,8 +247,8 @@ examples/               runnable scripts for each flow
 ```
 
 `FileStore` is the default because it makes the examples runnable with no
-infrastructure. It is single-process only — two processes rewriting the same file
-clobber each other — and rewrites the whole file per key. Implement
+infrastructure. It is single-process only (two processes rewriting the same file
+clobber each other) and rewrites the whole file per key. Implement
 `KeyValueStore` against your own database before production; both idempotency
 guarantees then rest on your database's constraints rather than a local file's.
 
@@ -277,7 +277,7 @@ just against the SDK's types. What that run established:
 | Call | Result |
 |---|---|
 | `accounts.retrieve` / `list` (incl. `query`, cursor `first`) | accepted |
-| `accountLinks.create` | accepted — real hosted KYC link returned |
+| `accountLinks.create` | accepted, real hosted KYC link returned |
 | `checkoutConfigurations.create` with `application_fee_amount` | accepted |
 | `payments.list` (`account_id`, `created_after`/`_before`) | accepted |
 | `transfers.list` (`destination_id`) | accepted |
@@ -286,7 +286,7 @@ just against the SDK's types. What that run established:
 
 **The 8% fee is really applied.** `application_fee_amount` is not echoed back by
 `checkoutConfigurations.retrieve`, so acceptance alone proves nothing. Sending a
-fee larger than the price settles it — Whop rejects it specifically:
+fee larger than the price settles it. Whop rejects it specifically:
 
 > `Application fee amount must be less than the total payment amount ($25.00)`
 
@@ -299,7 +299,7 @@ production: a plan `title` is capped at **30 characters** (Whop reports it as
 "Failed to create dynamic plan", which does not name the field), and
 `transfers.list` **400s** without `origin_id` or `destination_id`.
 
-Not verified: `accounts.create` (needs a real, deliverable email address — Whop
+Not verified: `accounts.create` (needs a real, deliverable email address; Whop
 rejects `example.com`) and `transfers.create` (needs a settled balance).
 
 What the suite does **not** cover: any real call to Whop. For that, put a key in
@@ -311,12 +311,12 @@ cp .env.example .env   # then add your key
 npm run smoke          # optionally: npm run smoke -- biz_a_seller_account
 ```
 
-It exercises every read path this SDK uses — `accounts.list` pagination, the
+It exercises every read path this SDK uses: `accounts.list` pagination, the
 free-text `query` filter onboarding recovery depends on, and the `account_id` /
-`destination_id` filters and date windows reconciliation sends — and reports
+`destination_id` filters and date windows reconciliation sends. It reports
 which shapes Whop accepted. The write paths (create account, checkout, transfer)
 are still only covered by the examples.
 
 ## License
 
-MIT — see [LICENSE](LICENSE).
+MIT. See [LICENSE](LICENSE).

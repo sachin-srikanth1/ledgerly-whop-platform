@@ -48,7 +48,7 @@ function stubClient({ existing = [] } = {}) {
           accounts.set(account.id, account);
           return account;
         },
-        // Whop's `query` filter matches `title` only — never metadata. The
+        // Whop's `query` filter matches `title` only, never metadata. The
         // stub mirrors that, so a test cannot pass on behaviour the API
         // does not have.
         list: async (request) => {
@@ -130,7 +130,7 @@ test("a lost store recovers the account from Whop instead of duplicating it", as
   const { client, calls } = stubClient();
 
   const first = await onboardSeller(client, INPUT, { store: new MemoryStore() });
-  // The store is gone entirely — a rebuilt machine, a dropped table.
+  // The store is gone entirely: a rebuilt machine, a dropped table.
   const second = await onboardSeller(client, INPUT, { store: new MemoryStore() });
 
   assert.equal(second.accountId, first.accountId);
@@ -176,7 +176,7 @@ test("required inputs are checked", async () => {
 test("a seller can be onboarded from external id, email and country alone", async () => {
   const { client } = stubClient();
 
-  // Exactly the inputs the brief names — no URLs.
+  // Exactly the inputs the brief names, with no URLs.
   const result = await onboardSeller(
     client,
     { externalId: "seller_us_001", email: "seller@example.com", country: "US" },
@@ -268,7 +268,7 @@ test("a scan that hits its ceiling throws instead of duplicating", async () => {
   }
 
   // Returning undefined here would read as "no such account" and create a
-  // second one — the outcome recovery exists to prevent.
+  // second one, the outcome recovery exists to prevent.
   await assert.rejects(
     () => findAccountByExternalId(client, "seller_us_001", 5),
     /without finding external id/

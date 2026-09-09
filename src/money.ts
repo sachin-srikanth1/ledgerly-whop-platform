@@ -48,13 +48,13 @@ export function toMajorUnits(cents: number): number {
   return cents / MINOR_UNITS_PER_MAJOR;
 }
 
-/** Format an amount for logs and reports. Display only — never for arithmetic. */
+/** Format an amount for logs and reports. Display only, never for arithmetic. */
 export function formatMoney(amount: number, currency: string): string {
   return `${currency.toUpperCase()} ${amount.toFixed(2)}`;
 }
 
 /**
- * Parse an exact decimal string — the form Whop's `Money.amount` takes — into
+ * Parse an exact decimal string (the form Whop's `Money.amount` takes) into
  * integer cents, without routing it through a float.
  *
  * Whop sends money amounts as strings precisely so nothing rounds them in

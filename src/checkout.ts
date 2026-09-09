@@ -47,7 +47,7 @@ export interface CreateCheckoutResult {
  * seller, Whop routes `application_fee_amount` to the platform, and the seller
  * bears Whop's own processing fees, refunds and disputes out of the remainder.
  *
- * What the seller nets is therefore not something this function can state — it
+ * What the seller nets is therefore not something this function can state. It
  * depends on Whop's fee schedule for that account, the buyer's card, and any
  * currency conversion. Read it from `payments.listFees` on the resulting
  * payment rather than estimating it here.
@@ -102,7 +102,7 @@ export async function createCheckout(
       plan_type: planType,
       initial_price: price,
       currency: currency.toLowerCase(),
-      // Whop takes this in major units, matching initial_price — not cents.
+      // Whop takes this in major units, matching initial_price, not cents.
       application_fee_amount: applicationFee,
       ...(planType === "renewal"
         ? { renewal_price: price, billing_period: billingPeriodDays }
@@ -158,7 +158,7 @@ export function calculateApplicationFee(price: number): number {
 /**
  * Assert that `fee` is exactly Ledgerly's 8% of `price`.
  *
- * Exact to the cent — no tolerance. A fee that is a cent off is a fee that was
+ * Exact to the cent, with no tolerance. A fee that is a cent off is a fee that was
  * computed by something other than {@link calculateApplicationFee}, which is
  * the thing worth catching.
  *
@@ -179,7 +179,7 @@ export function validateApplicationFee(price: number, fee: number): void {
  *
  * Reports only what Ledgerly controls. Whop's processing fees are deducted from
  * the seller's share and vary by account, card and currency, so the seller's
- * net is knowable only after the payment settles — see `payments.listFees`.
+ * net is knowable only after the payment settles. See `payments.listFees`.
  */
 export function getFeeBreakdown(price: number, currency: string = "usd") {
   const applicationFee = calculateApplicationFee(price);
