@@ -105,7 +105,7 @@ its 8%, and record whichever way you decide in your `refund.created` handler.
 ### Onboarding
 
 ```typescript
-import { onboardSeller, FileStore } from "ledgerly-platform";
+import { onboardSeller, FileStore } from "ledgerly-whop-platform";
 
 const store = new FileStore("./seller-accounts.json"); // your database in production
 
@@ -148,7 +148,7 @@ the database closes it. A file cannot express that constraint.
 ### Checkout
 
 ```typescript
-import { createCheckout } from "ledgerly-platform";
+import { createCheckout } from "ledgerly-whop-platform";
 
 const checkout = await createCheckout(client, {
   sellerAccountId: seller.accountId,
@@ -172,7 +172,7 @@ A price small enough that 8% rounds to zero throws: Whop requires a positive
 ### Webhooks
 
 ```typescript
-import { WebhookConsumer, FileStore, WebhookVerificationError } from "ledgerly-platform";
+import { WebhookConsumer, FileStore, WebhookVerificationError } from "ledgerly-whop-platform";
 
 const consumer = new WebhookConsumer({
   secret: process.env.WHOP_WEBHOOK_SECRET!, // verbatim, `ws_` prefix included
@@ -208,7 +208,7 @@ receives its own events and never its sellers'.
 ### Reconciliation
 
 ```typescript
-import { reconcileSeller, formatReport } from "ledgerly-platform";
+import { reconcileSeller, formatReport } from "ledgerly-whop-platform";
 
 const report = await reconcileSeller(client, {
   sellerAccountId: "biz_xxx",

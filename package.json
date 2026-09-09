@@ -1,5 +1,5 @@
 {
-  "name": "ledgerly-platform",
+  "name": "ledgerly-whop-platform",
   "version": "1.0.0",
   "description": "Idempotent onboarding, 8% application-fee checkout, verified webhooks and reconciliation for a Whop connected-accounts platform",
   "main": "dist/index.js",
