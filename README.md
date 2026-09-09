@@ -274,6 +274,39 @@ npm test
 secret encoding, header names or timestamp tolerance drift. Whop API calls run
 against stubs that mirror the shapes in `@whop/sdk`'s types.
 
+### Verified against a live sandbox
+
+Every call this SDK makes has been run against a real Whop platform account, not
+just against the SDK's types. What that run established:
+
+| Call | Result |
+|---|---|
+| `accounts.retrieve` / `list` (incl. `query`, cursor `first`) | accepted |
+| `accountLinks.create` | accepted — real hosted KYC link returned |
+| `checkoutConfigurations.create` with `application_fee_amount` | accepted |
+| `payments.list` (`account_id`, `created_after`/`_before`) | accepted |
+| `transfers.list` (`destination_id`) | accepted |
+| `onboardSeller` idempotency, incl. recovery from an empty store | same account, no duplicate |
+| Reconciliation against a real payment | clean match, and correct diffs when perturbed |
+
+**The 8% fee is really applied.** `application_fee_amount` is not echoed back by
+`checkoutConfigurations.retrieve`, so acceptance alone proves nothing. Sending a
+fee larger than the price settles it — Whop rejects it specifically:
+
+> `Application fee amount must be less than the total payment amount ($25.00)`
+
+Whop reads and validates the field. It is stored, merely not returned. That
+constraint is also enforced client-side, so the error surfaces before the round
+trip.
+
+Two API limits found this way and now guarded in code rather than discovered in
+production: a plan `title` is capped at **30 characters** (Whop reports it as
+"Failed to create dynamic plan", which does not name the field), and
+`transfers.list` **400s** without `origin_id` or `destination_id`.
+
+Not verified: `accounts.create` (needs a real, deliverable email address — Whop
+rejects `example.com`) and `transfers.create` (needs a settled balance).
+
 What the suite does **not** cover: any real call to Whop. For that, put a key in
 `.env` and run the read-only smoke test, which lists and retrieves but creates
 nothing:

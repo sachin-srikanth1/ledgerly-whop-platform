@@ -6,6 +6,15 @@ export const LEDGERLY_FEE_BASIS_POINTS = 800;
 
 const BASIS_POINTS_PER_UNIT = 10_000;
 
+/**
+ * Whop's cap on an inline plan's title.
+ *
+ * Exceeding it fails the whole checkout with "Failed to create dynamic plan:
+ * Validation failed: Title is too long (maximum is 30 characters)", which does
+ * not name the field the caller passed. Checked here so the error does.
+ */
+export const MAX_PRODUCT_TITLE_LENGTH = 30;
+
 export interface CreateCheckoutInput {
   /** The seller's connected account, prefixed `biz_`. */
   sellerAccountId: string;
@@ -62,6 +71,13 @@ export async function createCheckout(
 
   if (!sellerAccountId) throw new Error("sellerAccountId is required");
   if (!productTitle) throw new Error("productTitle is required");
+
+  if (productTitle.length > MAX_PRODUCT_TITLE_LENGTH) {
+    throw new Error(
+      `productTitle is ${productTitle.length} characters; Whop caps a plan title ` +
+        `at ${MAX_PRODUCT_TITLE_LENGTH}. Shorten it: ${JSON.stringify(productTitle)}`
+    );
+  }
   if (!currency) throw new Error("currency is required");
   if (!redirectUrl) throw new Error("redirectUrl is required");
 

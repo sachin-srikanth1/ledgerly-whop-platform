@@ -65,3 +65,23 @@ test("transfer split keeps 8% and gives the seller the remainder", () => {
   // 8% of 0.31 is 0.0248 -> 0.02, seller gets the other 0.29.
   assert.deepEqual(splitSellerShare(0.31), { sellerAmount: 0.29, platformFee: 0.02 });
 });
+
+test("a product title over Whop's 30-character cap is rejected before the round trip", async () => {
+  const { createCheckout, MAX_PRODUCT_TITLE_LENGTH } = require("../dist");
+
+  assert.equal(MAX_PRODUCT_TITLE_LENGTH, 30);
+
+  // Whop reports this as "Failed to create dynamic plan", which does not name
+  // the offending field. Fail here instead, naming it.
+  await assert.rejects(
+    () =>
+      createCheckout({}, {
+        sellerAccountId: "biz_x",
+        productTitle: "Ledgerly Verification — Premium Course",
+        price: 25,
+        currency: "usd",
+        redirectUrl: "https://example.com/thanks",
+      }),
+    /Whop caps a plan title at 30/
+  );
+});

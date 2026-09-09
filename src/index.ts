@@ -30,6 +30,7 @@ export {
   createCheckout,
   getFeeBreakdown,
   LEDGERLY_FEE_BASIS_POINTS,
+  MAX_PRODUCT_TITLE_LENGTH,
   validateApplicationFee,
 } from "./checkout";
 export type { CreateCheckoutInput, CreateCheckoutResult } from "./checkout";

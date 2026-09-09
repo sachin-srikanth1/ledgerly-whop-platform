@@ -241,3 +241,25 @@ test("a genuinely absent external id returns undefined, not an error", async () 
 
   assert.equal(await findAccountByExternalId(client, "never_onboarded"), undefined);
 });
+
+test("the reverse mapping is written even when the account was already mapped", async () => {
+  const store = new MemoryStore();
+
+  // A store holding only the forward mapping: a migration, an older version of
+  // this SDK, or a hand-inserted row. Without the reverse key, webhooks for
+  // this seller route to a null externalId and nothing says why.
+  const seeded = stubClient();
+  seeded.accounts.set("biz_seeded", {
+    id: "biz_seeded",
+    email: "seller@example.com",
+    country: "US",
+    title: "Seeded Seller",
+    metadata: { external_id: "seller_us_001" },
+    status: "active",
+  });
+  await store.set("seller:seller_us_001", "biz_seeded");
+
+  await onboardSeller(seeded.client, INPUT, { store });
+
+  assert.equal(await store.get("account:biz_seeded"), "seller_us_001");
+});

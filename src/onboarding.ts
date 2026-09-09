@@ -139,8 +139,14 @@ export async function onboardSeller(
     // Persist before minting the link. A crash between the two costs a wasted
     // link; a crash before this write costs a duplicate account.
     await store.set(storeKey(externalId), account.id);
-    await store.set(reverseKey(account.id), externalId);
   }
+
+  // Written on every path, not just the create path. A store seeded from
+  // elsewhere — a migration, an older version of this SDK, a hand-inserted
+  // row — can hold the forward mapping without the reverse one, and a missing
+  // reverse mapping is invisible until a webhook arrives and routes to a null
+  // seller. Re-writing an existing key is harmless.
+  await store.set(reverseKey(account.id), externalId);
 
   const accountLink: any = await (client.accountLinks.create as any)({
     account_id: account.id,
