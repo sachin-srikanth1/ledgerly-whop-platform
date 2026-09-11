@@ -9,6 +9,7 @@
  * events, not just its own.
  */
 
+require("./env");
 const http = require("node:http");
 const path = require("node:path");
 const { WebhookConsumer, FileStore, WebhookVerificationError } = require("../dist");

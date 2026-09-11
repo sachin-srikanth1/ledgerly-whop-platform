@@ -225,3 +225,41 @@ test("an event with no registered handler is reported as unhandled", async () =>
 test("a consumer cannot be built without a secret", () => {
   assert.throws(() => new WebhookConsumer({ secret: "", store: new MemoryStore() }));
 });
+
+test("a fetch Headers object verifies (Next.js, Remix, Bun, Workers)", async () => {
+  const consumer = new WebhookConsumer({ secret: SECRET, store: new MemoryStore() });
+  const payload = eventBody();
+  const signed = signWebhook({ secret: SECRET, messageId: "msg_fetch", payload });
+
+  // What `request.headers` is in any fetch-style route handler. Object.keys()
+  // on it returns [], which is what used to make every delivery fail.
+  const headers = new Headers(signed);
+  assert.deepEqual(Object.keys(headers), [], "precondition: entries are not own properties");
+
+  const result = await consumer.handle(payload, headers);
+  assert.equal(result.processed, true);
+});
+
+test("Node-style headers verify regardless of case", async () => {
+  const consumer = new WebhookConsumer({ secret: SECRET, store: new MemoryStore() });
+  const payload = eventBody();
+  const signed = signWebhook({ secret: SECRET, messageId: "msg_case", payload });
+
+  const shouting = Object.fromEntries(
+    Object.entries(signed).map(([key, value]) => [key.toUpperCase(), value])
+  );
+
+  const result = await consumer.handle(payload, { ...shouting, host: "example.com" });
+  assert.equal(result.processed, true);
+});
+
+test("a fetch Headers delivery is still deduplicated on its webhook-id", async () => {
+  const consumer = new WebhookConsumer({ secret: SECRET, store: new MemoryStore() });
+  const payload = eventBody();
+  const signed = signWebhook({ secret: SECRET, messageId: "msg_fetch_dup", payload });
+
+  await consumer.handle(payload, new Headers(signed));
+  const second = await consumer.handle(payload, new Headers(signed));
+
+  assert.equal(second.processed, false);
+});

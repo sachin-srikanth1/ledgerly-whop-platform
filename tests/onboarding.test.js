@@ -10,6 +10,7 @@ const {
   onboardSeller,
   getOnboardingStatus,
   findAccountByExternalId,
+  rebuildStore,
   DEFAULT_RETURN_URL,
 } = require("../dist/onboarding");
 const { FileStore, MemoryStore } = require("../dist/store");
@@ -235,7 +236,7 @@ test("onboarding writes the reverse mapping the webhook consumer routes with", a
   assert.equal(await store.get(`account:${seller.accountId}`), "seller_us_001");
 });
 
-test("recovery finds an account whose title is not its external id", async () => {
+test("an opt-in scan finds an account whose title is not its external id", async () => {
   const { client, accounts, calls } = stubClient();
 
   // How a real connected account looks: a human title, the identity in
@@ -249,7 +250,10 @@ test("recovery finds an account whose title is not its external id", async () =>
     status: "active",
   });
 
-  const result = await onboardSeller(client, INPUT, { store: new MemoryStore() });
+  const result = await onboardSeller(client, INPUT, {
+    store: new MemoryStore(),
+    recoverFromWhop: "scan",
+  });
 
   assert.equal(result.accountId, "biz_preexisting");
   assert.equal(result.created, false);
@@ -302,4 +306,48 @@ test("the reverse mapping is written even when the account was already mapped", 
   await onboardSeller(seeded.client, INPUT, { store });
 
   assert.equal(await store.get("account:biz_seeded"), "seller_us_001");
+});
+
+test("onboarding a new seller costs one lookup, however many sellers exist", async () => {
+  const { client, accounts, calls } = stubClient();
+
+  for (let i = 0; i < 2000; i += 1) {
+    accounts.set(`biz_existing_${i}`, {
+      id: `biz_existing_${i}`,
+      title: `Existing Seller ${i}`,
+      metadata: { external_id: `existing_${i}` },
+    });
+  }
+
+  // The default used to scan every account on a store miss, which is the
+  // normal case for a new seller. Past 1000 sellers that threw, so no new
+  // seller could be onboarded at all.
+  const result = await onboardSeller(client, INPUT, { store: new MemoryStore() });
+
+  assert.equal(result.created, true);
+  assert.equal(calls.list, 1, "one filtered lookup, not a scan");
+});
+
+test("rebuildStore maps existing sellers, including ones titled by hand", async () => {
+  const { client, accounts, calls } = stubClient();
+
+  accounts.set("biz_us", {
+    id: "biz_us",
+    title: "Ledgerly US Seller",
+    metadata: { external_id: "seller_us_001" },
+  });
+  accounts.set("biz_platform", { id: "biz_platform", title: "Ledgerly", metadata: {} });
+
+  const store = new MemoryStore();
+  const summary = await rebuildStore(client, store);
+
+  assert.deepEqual(summary, { scanned: 2, mapped: 1, skipped: 1 });
+  assert.equal(await store.get("seller:seller_us_001"), "biz_us");
+  assert.equal(await store.get("account:biz_us"), "seller_us_001", "webhooks can route to it");
+
+  // After a rebuild, onboarding that seller finds it from the store.
+  const result = await onboardSeller(client, INPUT, { store });
+  assert.equal(result.accountId, "biz_us");
+  assert.equal(result.created, false);
+  assert.equal(calls.create, 0);
 });

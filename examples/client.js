@@ -1,5 +1,6 @@
 "use strict";
 
+require("./env");
 const { WhopClient } = require("@whop/sdk");
 
 /** A platform-authenticated Whop client, or a clear error about what's missing. */

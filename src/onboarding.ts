@@ -58,11 +58,21 @@ export interface OnboardSellerOptions {
    */
   store: KeyValueStore;
   /**
-   * When the store has no mapping, scan the platform's connected accounts for
-   * one already carrying this `externalId` before creating another. Defaults to
-   * true. See {@link findAccountByExternalId} for the cost.
+   * What to check on Whop when the store has no mapping, before creating.
+   *
+   * - `"query"` (default): one `accounts.list` call filtered by title. Finds
+   *   any account this SDK created, since it titles accounts with their
+   *   external id. Constant cost however many sellers the platform has.
+   * - `"scan"`: page through every connected account and match on
+   *   `metadata.external_id`. Finds accounts titled by hand too, but costs one
+   *   API call per 50 sellers on every onboarding. Use it for a small platform
+   *   or a one-off, not as the default.
+   * - `false`: trust the store completely.
+   *
+   * A lost or migrated store is better handled once with {@link rebuildStore}
+   * than on every onboarding call.
    */
-  recoverFromWhop?: boolean;
+  recoverFromWhop?: "query" | "scan" | false;
   /**
    * Platform-wide destination after a seller finishes onboarding. Set this once
    * rather than passing it per seller. Falls back to {@link DEFAULT_RETURN_URL}.
@@ -117,7 +127,7 @@ export async function onboardSeller(
   options: OnboardSellerOptions
 ): Promise<OnboardSellerResult> {
   const { externalId, email, country, title } = input;
-  const { store, recoverFromWhop = true } = options;
+  const { store, recoverFromWhop = "query" } = options;
 
   if (!externalId) throw new Error("externalId is required");
   if (!email) throw new Error("email is required");
@@ -143,7 +153,9 @@ export async function onboardSeller(
       );
     }
   } else {
-    if (recoverFromWhop) {
+    if (recoverFromWhop === "query") {
+      account = await findAccountByTitle(client, externalId);
+    } else if (recoverFromWhop === "scan") {
       account = await findAccountByExternalId(client, externalId);
     }
 
@@ -232,14 +244,8 @@ export async function findAccountByExternalId(
 
   // Fast path: cheap when the account was created by this SDK, whose default
   // title is the external id.
-  const titleMatches = await (client.accounts.list as any)({
-    query: externalId,
-    first: 50,
-  });
-
-  for await (const account of titleMatches) {
-    if (matches(account)) return account;
-  }
+  const byTitle = await findAccountByTitle(client, externalId);
+  if (byTitle) return byTitle;
 
   // Fallback: the title did not carry the external id, so scan on metadata.
   // The SDK's Page is async-iterable and fetches further pages on demand.
@@ -260,6 +266,72 @@ export async function findAccountByExternalId(
   }
 
   return undefined;
+}
+
+/**
+ * One `accounts.list` call, filtered to accounts titled with this external id,
+ * then confirmed on `metadata.external_id`. Finds anything this SDK created.
+ */
+async function findAccountByTitle(
+  client: WhopClient,
+  externalId: string
+): Promise<any | undefined> {
+  const page = await (client.accounts.list as any)({ query: externalId, first: 50 });
+
+  for await (const account of page) {
+    if (account?.metadata?.[EXTERNAL_ID_METADATA_KEY] === externalId) {
+      return account;
+    }
+  }
+
+  return undefined;
+}
+
+export interface RebuildStoreResult {
+  /** Connected accounts examined. */
+  scanned: number;
+  /** Accounts carrying an external id, now mapped in both directions. */
+  mapped: number;
+  /** Accounts with no `metadata.external_id`, left out of the store. */
+  skipped: number;
+}
+
+/**
+ * Rebuild the `externalId <-> account id` mappings from Whop.
+ *
+ * Run this once after losing, migrating or first adopting a store, including
+ * for sellers onboarded before this SDK existed. It pages through every
+ * connected account a single time and writes both directions of the mapping
+ * for each one carrying `metadata.external_id`, so afterwards
+ * {@link onboardSeller} finds existing sellers from the store and webhooks
+ * route to them.
+ *
+ * This is the recovery path, deliberately separate from onboarding. Scanning
+ * every account on every onboarding call would cost one API call per 50
+ * sellers each time a new seller signs up.
+ */
+export async function rebuildStore(
+  client: WhopClient,
+  store: KeyValueStore
+): Promise<RebuildStoreResult> {
+  const page = await (client.accounts.list as any)({ first: 50 });
+  const result: RebuildStoreResult = { scanned: 0, mapped: 0, skipped: 0 };
+
+  for await (const account of page) {
+    result.scanned += 1;
+    const externalId = account?.metadata?.[EXTERNAL_ID_METADATA_KEY];
+
+    if (typeof externalId !== "string" || externalId === "") {
+      result.skipped += 1;
+      continue;
+    }
+
+    await store.set(storeKey(externalId), account.id);
+    await store.set(reverseKey(account.id), externalId);
+    result.mapped += 1;
+  }
+
+  return result;
 }
 
 async function retrieveAccount(client: WhopClient, accountId: string): Promise<any | undefined> {

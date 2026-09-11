@@ -95,10 +95,16 @@ from `ledger_account.funds_available` or a scheduled sweep. (Some platform
 accounts may transfer pending balance to their children;
 `can_transfer_pending_balance_to_children` on the account says whether yours can.)
 
-**Refunds.** In the direct-charge flow the refund comes out of the seller's
-account. Whether Whop also reverses the application fee is account-specific.
-Confirm it against your own account before you decide whether Ledgerly returns
-its 8%, and record whichever way you decide in your `refund.created` handler.
+**Refunds.** Whop's docs split responsibility by flow: on a direct charge the
+connected account bears refunds and disputes, and on a transfer the platform
+does. They do not say what happens to the application fee, and the refund call
+(`payments.refund`) has no option for it: it takes a payment id and an optional
+partial amount, nothing else. So Ledgerly cannot choose per refund whether Whop
+reverses its 8%. What it can choose is policy: if Ledgerly gives its fee back on
+a refund, do it explicitly with a transfer to the seller from the
+`refund.created` handler, keyed on the refund id so a redelivered webhook cannot
+pay it twice. Check a refunded sandbox payment's fee lines
+(`payments.listFees`) to see Whop's default before deciding.
 
 ## Usage
 
@@ -125,15 +131,28 @@ Whop has no "find account by metadata" endpoint, so the `externalId → account 
 map in your store is what makes this idempotent: there is no server-side unique
 key to lean on.
 
-If the store is lost, `findAccountByExternalId` recovers the mapping. Note what
-it cannot do: Whop's free-text `query` filter matches `title` **only**, so
-searching it for an external id returns nothing for any account titled something
-human. Verified against a live platform, where `query: "seller_us_001"` returns
-zero matches for the account carrying exactly that `metadata.external_id` under
-the title "Ledgerly US Seller". Recovery therefore uses `query` as a fast path
-and falls back to paging every connected account and matching on metadata. That
-scan is capped; hitting the cap throws rather than returning "not found", because
-"not found" would make the caller create a duplicate.
+On a store miss, onboarding makes one `accounts.list` call filtered by title
+before creating. That finds any account this SDK created, because it titles
+accounts with their external id, and it costs the same whether the platform has
+ten sellers or ten thousand.
+
+It does not find accounts someone titled by hand. Whop's free-text `query` filter
+matches `title` **only**, never metadata. Verified against a live platform:
+`query: "seller_us_001"` returns zero matches for the account carrying exactly
+that `metadata.external_id` under the title "Ledgerly US Seller". For those, and
+whenever a store is lost, migrated or newly adopted, run `rebuildStore` once:
+
+```typescript
+import { rebuildStore } from "ledgerly-whop-platform";
+
+await rebuildStore(client, store); // { scanned, mapped, skipped }
+```
+
+It pages through every connected account a single time and writes both
+directions of the mapping, so onboarding finds existing sellers and webhooks
+route to them. Recovery is kept out of the onboarding call on purpose: scanning
+every account per onboarding would cost one API call per 50 sellers each time a
+new seller signed up.
 
 The one race this cannot close on its own: two concurrent calls for the same
 unmapped `externalId` both find nothing and both create. Back `KeyValueStore`
@@ -178,9 +197,20 @@ consumer.on("payment.succeeded", async ({ event, sellerAccountId, externalId }) 
   // externalId is your seller id, resolved through the same store onboarding wrote.
 });
 
-// In your route handler. Raw body, not a re-serialized one:
-const result = await consumer.handle(await request.text(), headers);
+// Next.js route handler (or Remix, Bun, Workers): pass request.headers as is.
+export async function POST(request: Request) {
+  const result = await consumer.handle(await request.text(), request.headers);
+  return Response.json(result);
+}
 ```
+
+`handle` takes the raw body, never a re-serialized one: the signature covers the
+exact bytes Whop sent. It accepts headers in either shape a server hands you, a
+fetch `Headers` object or Node's plain object. That matters more than it sounds.
+`standardwebhooks` reads headers with `Object.keys()`, which returns nothing for a
+`Headers` object, so passing one straight to the library rejects every real
+delivery with "Missing required headers". `examples/webhook-server.js` shows the
+Node `http` version.
 
 Verification goes through the SDK's own `unwrapWebhook`, which handles a detail
 that is easy to get wrong by hand: Whop HMACs with the literal bytes of the `ws_`
@@ -308,7 +338,10 @@ production: a plan `title` is capped at **30 characters** (Whop reports it as
 `transfers.list` **400s** without `origin_id` or `destination_id`.
 
 Not verified: `accounts.create` (needs a real, deliverable email address; Whop
-rejects `example.com`) and `transfers.create` (needs a settled balance).
+rejects `example.com`), `transfers.create` (needs a settled balance), and a
+webhook delivered by Whop itself rather than signed locally. `rebuildStore` uses
+only the `accounts.list` call verified above, but has not itself been run against
+the sandbox.
 
 What the suite does **not** cover: any real call to Whop. For that, put a key in
 `.env` and run the read-only smoke test, which lists and retrieves but creates

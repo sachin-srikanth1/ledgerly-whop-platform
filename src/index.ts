@@ -19,12 +19,14 @@ export {
   findAccountByExternalId,
   getOnboardingStatus,
   onboardSeller,
+  rebuildStore,
 } from "./onboarding";
 export type {
   OnboardingStatus,
   OnboardSellerInput,
   OnboardSellerOptions,
   OnboardSellerResult,
+  RebuildStoreResult,
 } from "./onboarding";
 
 export {
@@ -45,6 +47,7 @@ export {
 export type {
   EventHandler,
   HandleResult,
+  HeadersLike,
   RoutedEvent,
   WebhookConsumerOptions,
   WhopWebhookEvent,

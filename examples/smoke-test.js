@@ -4,7 +4,7 @@
  * Read-only smoke test against a real Whop account.
  *
  *   cp .env.example .env    # then put your key in it
- *   node --env-file=.env examples/smoke-test.js [biz_seller_account_id]
+ *   npm run smoke [-- biz_seller_account_id]
  *
  * This is the check the hermetic test suite cannot make: that Whop actually
  * accepts the request shapes this SDK sends. The unit tests verify our logic
@@ -89,7 +89,7 @@ async function main() {
   if (!sellerAccountId) {
     console.log("\nNo connected account to reconcile against.");
     console.log("Pass one explicitly to check the reconciliation read paths:");
-    console.log("  node --env-file=.env examples/smoke-test.js biz_xxxxxxxx");
+    console.log("  npm run smoke -- biz_xxxxxxxx");
   } else {
     console.log(`\nReconciliation read paths (against ${sellerAccountId})`);
 

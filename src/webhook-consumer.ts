@@ -38,6 +38,20 @@ export interface RoutedEvent<TData = Record<string, unknown>> {
   externalId: string | null;
 }
 
+/**
+ * Request headers in either shape a server hands you: a fetch `Headers`
+ * object (Next.js route handlers, Remix, Bun, Deno, Cloudflare Workers) or a
+ * plain object (Node's `http`, Express, Fastify).
+ *
+ * The distinction matters. `standardwebhooks` reads headers with
+ * `Object.keys()`, which returns `[]` for a `Headers` object, so passing one
+ * straight through fails every delivery with "Missing required headers".
+ * {@link WebhookConsumer.handle} converts either shape to a plain object first.
+ */
+export type HeadersLike =
+  | { forEach(callback: (value: string, key: string) => void): void }
+  | Record<string, string | string[] | undefined>;
+
 export type EventHandler<TData = Record<string, unknown>> = (
   routed: RoutedEvent<TData>
 ) => Promise<void>;
@@ -127,23 +141,26 @@ export class WebhookConsumer {
    * @param rawBody The exact bytes of the request body. Signatures cover the
    * bytes Whop sent, so a re-serialized body never verifies: pass
    * `await request.text()`, never `JSON.stringify(await request.json())`.
-   * @param headers The request headers. `webhook-id`, `webhook-timestamp` and
-   * `webhook-signature` are read, case-insensitively.
+   * @param headers The request headers, as a fetch `Headers` object or a plain
+   * object. `webhook-id`, `webhook-timestamp` and `webhook-signature` are read,
+   * case-insensitively.
    *
    * @throws {WebhookVerificationError} when the signature is missing, malformed,
    * outside the timestamp tolerance, or simply wrong. Answer 400 and do not
    * retry: a bad signature never becomes good.
    * @throws {Error} propagated from a handler. Answer 5xx so Whop redelivers.
    */
-  async handle(rawBody: string, headers: Record<string, string>): Promise<HandleResult> {
+  async handle(rawBody: string, headers: HeadersLike): Promise<HandleResult> {
+    const normalized = normalizeHeaders(headers);
+
     // Throws unless the signature verifies. Nothing below this line runs on an
     // unsigned or badly-signed request, including the JSON parse.
     const event = unwrapWebhook<WhopWebhookEvent>(rawBody, {
-      headers,
+      headers: normalized,
       key: this.secret,
     });
 
-    const messageId = headerValue(headers, "webhook-id") ?? event.id;
+    const messageId = normalized["webhook-id"] ?? event.id;
 
     if (!messageId) {
       throw new Error("Delivery has neither a webhook-id header nor an envelope id");
@@ -200,15 +217,30 @@ export class WebhookConsumer {
   }
 }
 
-function headerValue(headers: Record<string, string>, name: string): string | undefined {
-  const direct = headers[name];
-  if (direct !== undefined) return direct;
+/** Flatten either header shape into a plain object with lowercase keys. */
+function normalizeHeaders(headers: HeadersLike): Record<string, string> {
+  const normalized: Record<string, string> = {};
 
-  const lowered = name.toLowerCase();
-  for (const [key, value] of Object.entries(headers)) {
-    if (key.toLowerCase() === lowered) return value;
+  if (typeof headers.forEach === "function" && !Array.isArray(headers)) {
+    // A fetch Headers object. Its entries are not own properties, which is
+    // exactly why Object.keys() sees nothing.
+    (headers as { forEach(cb: (value: string, key: string) => void): void }).forEach(
+      (value, key) => {
+        normalized[key.toLowerCase()] = value;
+      }
+    );
+    return normalized;
   }
-  return undefined;
+
+  for (const [key, value] of Object.entries(headers as Record<string, string | string[] | undefined>)) {
+    if (value === undefined) continue;
+    // Node only arrays a header when it repeats. The webhook headers never
+    // should; take the first rather than guess at a join.
+    const single = Array.isArray(value) ? value[0] : value;
+    if (single !== undefined) normalized[key.toLowerCase()] = single;
+  }
+
+  return normalized;
 }
 
 export { EXTERNAL_ID_METADATA_KEY };

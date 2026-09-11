@@ -21,9 +21,17 @@ because its title is "Ledgerly US Seller". An earlier version of this code
 treated `query` as a metadata search and would have created a duplicate
 connected account for every seller whenever the store was lost.
 
-**So recovery works in two steps.** `query` first, since accounts this SDK
-creates default their title to the external id and that path is cheap. When that
-misses, page every connected account and match on `metadata.external_id`.
+**So lookup and recovery are separate.** On a store miss, onboarding makes one
+`query` call before creating. Accounts this SDK creates are titled with their
+external id, so that call finds them, and it costs the same at any platform size.
+Recovering accounts titled by hand, or a lost store, is `rebuildStore`: one pass
+over every connected account that writes all the mappings.
+
+An earlier version did the full scan inside onboarding whenever the store missed.
+A store miss is the normal case for a brand-new seller, so every signup paid one
+API call per 50 existing sellers, and past a 1,000-account safety cap onboarding
+a new seller threw outright. Recovery is a rare event and is now paid for once,
+not on every signup.
 
 **The limit, stated plainly.** Two concurrent calls for the same unmapped
 `externalId` will both find nothing and both create. No amount of client-side
